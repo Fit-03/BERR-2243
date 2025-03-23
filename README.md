@@ -81,6 +81,3 @@ This is Exercise 1 for the subject **BERR 2243 - Database And Cloud System**. Th
 ├── .gitignore
 └── README.md
 ```
-
-## License
-This project is for educational purposes only.
