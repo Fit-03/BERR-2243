@@ -12,11 +12,11 @@ async function main() {
         const collection = db.collection("users");
 
         // Insert a document
-        await collection.insertOne({ name: "Alice", age: 25 });
+        await collection.insertOne({ name: "Fitri", age: 22 });
         console.log("Document inserted!");
 
-        // QUery the document
-        const result = await collection.findOne({ name: "Alice" });
+        // Query the document
+        const result = await collection.findOne({ name: "Fitri" });
         console.log("Query result:", result);
     }   
     
