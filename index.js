@@ -1,33 +1,48 @@
-// This is week 1 exercise
-const { MongoClient } = require('mongodb');
+const {MongoClient} = require('mongodb');
 
-async function main() {
-    const uri = "mongodb://localhost:27017/"
-    const client = new MongoClient(uri);
-
-    try {
-        await client.connect();
-        console.log("Connected to MongoDB!");
-
-        const db = client.db("testDB");
-        const collection = db.collection("users");
-
-        // Insert a document
-        await collection.insertOne({ name: "Fitri", age: 22 });
-        console.log("Document inserted!");
-
-        // Query the document
-        const result = await collection.findOne({ name: "Fitri" });
-        console.log("Query result:", result);
-    }   
-    
-    catch(err) {
-        console.error("Error:", err);
+const drivers = [
+    {
+        name: "John Doe",
+        vehicleType: "Sedan",
+        isAvailable: true,
+        rating: 4.8,
+    },
+    {
+        name: "Alice Smith",
+        vehicleType: "SUV",
+        isAvailable: false,
+        rating: 4.5,
     }
+];
 
-    finally {
-        await client.close();
+    // Show the data in the console
+    console.log(drivers);
+
+    // Show the all the drivers name in the console
+    drivers.forEach(driver => {console.log(driver.name);});
+
+    // Add additional driver to the drivers array
+    drivers.push({
+        name: "Bob Johnson",
+        vehicleType: "Truck",
+        isAvailable: true,
+        rating: 4.7,
+    });
+
+    async function main() {
+        try {
+            await client.connect();
+            const db = client.db('testDB');
+
+            const driversCollection = db.collection('drivers');
+
+            drivers.forEach(async (driver) => {
+                const result = await driversCollection.insertOne(driver);
+                console.log(`Inserted driver with id: ${result.insertedId}`);
+            });
+        }
+
+        finally {
+            await client.close();
+        }
     }
-}
-
-main ();
