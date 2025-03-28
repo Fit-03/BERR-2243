@@ -40,12 +40,18 @@ async function main() {
 
         const driversCollection = db.collection('drivers');
         
-        drivers.forEach(async (driver) => {
+        for (const driver of drivers) {
             const result = await driversCollection.insertOne(driver);
-            console.log(`New driver created with result: ${result}`);
-        });
+            console.log(`New driver created with result: ${result.insertedId}`);
+        }
     }
+    catch(err) {
+        console.error("Error:", err);
+    }
+
     finally {
         await client.close();
     }
 }
+
+main();
