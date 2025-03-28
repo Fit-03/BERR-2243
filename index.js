@@ -42,7 +42,7 @@ const drivers = [
 
             drivers.forEach(async (driver) => {
                 const result = await driversCollection.insertOne(driver);
-                console.log(`Inserted driver with id: ${result.insertedId}`);
+                console.log(`New driver created with result: ${result}`);
             });
         }
 
