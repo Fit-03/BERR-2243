@@ -1,3 +1,4 @@
+// This is week 2 exercise
 const {MongoClient} = require('mongodb');
 
 const drivers = [
@@ -30,6 +31,9 @@ const drivers = [
     });
 
     async function main() {
+        const uri = "mongodb://localhost:27017/"
+        const client = new MongoClient(uri);
+        
         try {
             await client.connect();
             const db = client.db('testDB');
