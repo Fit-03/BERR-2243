@@ -40,6 +40,7 @@ async function main() {
 
         const driversCollection = db.collection('drivers');
         
+        // Async function cannot use forEach, so I use for..of loop instead
         for (const driver of drivers) {
             const result = await driversCollection.insertOne(driver);
             console.log(`New driver created with result: ${result.insertedId}`);
