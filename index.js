@@ -1,3 +1,4 @@
+// This is week 1 exercise
 const { MongoClient } = require('mongodb');
 
 async function main() {
