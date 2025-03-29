@@ -1,4 +1,3 @@
-// This is week 2 exercise
 const {MongoClient} = require('mongodb');
 
 const drivers = [
