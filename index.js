@@ -48,6 +48,13 @@ async function main() {
             console.log(`New driver created with result: ${result.insertedId}`);
         };
 
+        // This is to perform the update operation (Update)
+        const updateResult = await db.collection('drivers').updateOne(
+            { name: "John Doe" },
+            { $inc: { rating: 0.1 } }
+        );
+        console.log(`Driver updated with result: ${updateResult}`);
+
         // This is to perform the read operation (Read)
         const availableDrivers = await db.collection('drivers').find({
             isAvailable: true,
