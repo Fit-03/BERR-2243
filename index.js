@@ -16,37 +16,45 @@ const drivers = [
     }
 ];
 
-    // Show the data in the console
-    console.log(drivers);
+// Show the data in the console
+console.log(drivers);
 
-    // Show the all the drivers name in the console
-    drivers.forEach(driver => {console.log(driver.name);});
+// Show the all the drivers name in the console
+drivers.forEach(driver => {console.log(driver.name);});
 
-    // Add additional driver to the drivers array
-    drivers.push({
-        name: "Bob Johnson",
-        vehicleType: "Truck",
-        isAvailable: true,
-        rating: 4.7,
-    });
+// Add additional driver to the drivers array
+drivers.push({
+    name: "Bob Johnson",
+    vehicleType: "Truck",
+    isAvailable: true,
+    rating: 4.7,
+});
 
-    async function main() {
-        const uri = "mongodb://localhost:27017/"
-        const client = new MongoClient(uri);
+async function main() {
+    const uri = "mongodb://localhost:27017/"
+    const client = new MongoClient(uri);
+    
+    // This is to perform insertion of the drivers array into MongoDB (Create)
+    // The database name is testDB and the collection name is drivers
+    try {
+        await client.connect();
+        const db = client.db('testDB');
+
+        const driversCollection = db.collection('drivers');
         
-        try {
-            await client.connect();
-            const db = client.db('testDB');
-
-            const driversCollection = db.collection('drivers');
-
-            drivers.forEach(async (driver) => {
-                const result = await driversCollection.insertOne(driver);
-                console.log(`New driver created with result: ${result}`);
-            });
-        }
-
-        finally {
-            await client.close();
+        // Async function cannot use forEach, so I use for..of loop instead
+        for (const driver of drivers) {
+            const result = await driversCollection.insertOne(driver);
+            console.log(`New driver created with result: ${result.insertedId}`);
         }
     }
+    catch(err) {
+        console.error("Error:", err);
+    }
+
+    finally {
+        await client.close();
+    }
+}
+
+main();
