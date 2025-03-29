@@ -55,6 +55,11 @@ async function main() {
         );
         console.log(`Driver updated with result: ${updateResult}`);
 
+        // This is to perform the delete operation (Delete)
+        const deleteResult = await db.collection('drivers').deleteOne( { isAvailable: false } );
+        console.log(`Driver deleted with result: ${deleteResult}`
+        );
+
         // This is to perform the read operation (Read)
         const availableDrivers = await db.collection('drivers').find({
             isAvailable: true,
