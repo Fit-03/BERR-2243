@@ -34,6 +34,8 @@ async function main() {
     const uri = "mongodb://localhost:27017/"
     const client = new MongoClient(uri);
     
+    // This is to perform insertion of the drivers array into MongoDB (Create)
+    // The database name is testDB and the collection name is drivers
     try {
         await client.connect();
         const db = client.db('testDB');
