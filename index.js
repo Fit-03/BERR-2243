@@ -46,7 +46,14 @@ async function main() {
         for (const driver of drivers) {
             const result = await driversCollection.insertOne(driver);
             console.log(`New driver created with result: ${result.insertedId}`);
-        }
+        };
+
+        // This is to perform the read operation (Read)
+        const availableDrivers = await db.collection('drivers').find({
+            isAvailable: true,
+            rating: { $gte: 4.5 }
+        }).toArray();
+        console.log("Available drivers: ", availableDrivers);
     }
     catch(err) {
         console.error("Error:", err);
