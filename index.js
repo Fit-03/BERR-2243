@@ -25,3 +25,13 @@ connecToMongoDB();
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
+
+// GET /rides - Fetch all rides
+app.get('/rides', async (req, res) => {
+    try {
+        const rides = await db.collection('rides').find().toArray();
+        res.status(200).json(rides);
+    } catch (error) {
+        res.status(500).json({error: "Failed to fetch rides"});
+    }
+});
