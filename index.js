@@ -51,7 +51,7 @@ app.patch('/rides/:id', async (req, res) => {
     try {
         const result = await db.collection('rides').updateOne(
             { _id: new ObjectId(req.params.id) },
-            { $set: {status}}
+            { $set: {status: req.body.status} }
         );
 
         if (result.modifiedCount === 0) {
