@@ -1,7 +1,7 @@
 # BERR 2243 - Database And Cloud System
 
 ## Description
-This is Exercise 1 for the subject **BERR 2243 - Database And Cloud System**. The project involves setting up a development environment, learning Git workflows, and creating a simple Node.js script to connect to MongoDB, insert a document, and retrieve it.
+This is Exercise for the subject **BERR 2243 - Database And Cloud System**. The project involves setting up a development environment, learning Git workflows, and creating a simple Node.js script to connect to MongoDB, insert a document, and retrieve it.
 
 ## Installation Steps
 
