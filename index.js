@@ -5,9 +5,6 @@ const port = 3000;
 const app = express();
 app.use(express.json());
 
-const cors = require('cors');
-app.use(cors());
-
 let db;
 
 async function connecToMongoDB() {
@@ -18,7 +15,7 @@ async function connecToMongoDB() {
         await client.connect();
         console.log('Connected to MongoDB');
         
-        db = client.db('testDB');
+        db = client.db('GoRideDB');
     } catch (error) {
         console.error('Error:', error);
     }
@@ -29,41 +26,91 @@ app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
 
-// GET /rides - Fetch all rides
-app.get('/rides', async (req, res) => {
+// --- Register and Login --- //
+
+
+// POST /register - Create a new user or driver
+app.post('/register', async (req, res) => {
     try {
-        const rides = await db.collection('rides').find().toArray();
-        res.status(200).json(rides);
+        const { username, password, role } = req.body;
+
+        if (!username || !password || !role) {
+            return res.status(400).json({ error: "Username, password, and role are required" });
+        }
+
+        if (!['user', 'driver'].includes(role)) {
+            return res.status(400).json({ error: "Invalid role. Must be 'user' or 'driver'" });
+        }
+
+        const existingUser = await db.collection('users').findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ error: "Username already exists" });
+        }
+
+        const result = await db.collection('users').insertOne({ username, password, role });
+        res.status(201).json({ id: result.insertedId, message: `${role} registered successfully` });
     } catch (error) {
-        res.status(500).json({error: "Failed to fetch rides"});
+        res.status(500).json({ error: "Failed to register" });
     }
 });
+
+// POST /login - Authenticate a user with role
+app.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: "Username and password are required" });
+        }
+
+        const user = await db.collection('users').findOne({ username });
+        if (!user || user.password !== password) {
+            return res.status(401).json({ error: "Invalid credentials" });
+        }
+
+        res.status(200).json({ message: "Login successful", role: user.role });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to login" });
+    }
+});
+
+// --- User Endpoints --- //
 
 // POST /rides - Create a new ride
 app.post('/rides', async (req, res) => {
     try {
-        const result = await db.collection('rides').insertOne(req.body);
-        res.status(201).json({ id: result.insertedId});
+        const { id, destination, status } = req.body;
+        if (!id || !destination || !status) {
+            return res.status(400).json({ error: "User ID, destination and status are required" });
+        }
+
+        const ride = { id, destination, status };
+        const result = await db.collection('rides').insertOne(ride);
+
+        res.status(201).json({ rideID: result.insertedId });
     } catch (error) {
-        res.status(500).json({error: "Invalid ride data"});
+        res.status(500).json({ error: "Failed to create ride" });
     }
 });
 
-// PATCH /rides/:id - Update a ride
-app.put('/rides/:id', async (req, res) => {
+// PATCH /rides/car/:rideID - Update a ride's car
+app.patch('/rides/car/:rideID', async (req, res) => {
     try {
-        if (!ObjectId.isValid(req.params.id)) {
+        const { rideID } = req.params;
+        const { car } = req.body;
+
+        if (!ObjectId.isValid(rideID)) {
             return res.status(400).json({ error: "Invalid ride ID format" });
         }
 
         const result = await db.collection('rides').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            { $set: { status: req.body.status } }
+            { _id: new ObjectId(rideID) },
+            { $set: { car } }
         );
 
-        if (result.modifiedCount === 0) {
+        if (result.matchedCount === 0) {
             return res.status(404).json({ error: "Ride not found" });
         }
+
         res.status(200).json({ updated: result.modifiedCount });
 
     } catch (error) {
@@ -71,19 +118,217 @@ app.put('/rides/:id', async (req, res) => {
     }
 });
 
-// DELETE /rides/:id - Delete a ride
-app.delete('/rides/:id', async (req, res) => {
+// POST /rides/pay/:rideID - Pay for a ride
+app.post('/rides/pay/:rideID', async (req, res) => {
     try {
-        const result = await db.collection('rides').deleteOne(
-            { _id: new ObjectId(req.params.id) }
+        const { rideID } = req.params;
+        const { paymentMethod, amount } = req.body;
+
+        if (!ObjectId.isValid(rideID) || !paymentMethod || !amount) {
+            return res.status(400).send("Bad Request");
+        }
+
+        const result = await db.collection('rides').updateOne(
+            { _id: new ObjectId(rideID), paymentStatus: { $ne: 'Paid' } },
+            { $set: { paymentMethod, paymentStatus: 'Paid', amount } }
         );
 
-        if (result.deletedCount === 0) {
-            return res.status(404).json({error: "Ride not found"});
+        if (result.matchedCount === 0) {
+            return res.status(402).send("Payment Required");
         }
-        res.status(200).json({ deleted: result.deletedCount });
 
+        res.status(200).send("OK");
+        } catch (error) {
+        res.status(500).send("Internal Server Error");
+        }
+    });
+
+// GET /rides/:id/history - Fetch ride history for a user
+app.get('/rides/:id/history', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "Invalid user ID format" });
+        }
+
+        const rides = await db.collection('rides').find({ id: id }).toArray();
+        if (rides.length === 0) {
+            return res.status(404).json({ error: "No rides found for this user" });
+        }
+        res.status(200).json(rides);
     } catch (error) {
-        res.status(400).json({error: "Invalid ride ID"});
+        res.status(500).json({ error: "Failed to fetch ride history" });
+    }
+});
+
+// --- Driver Endpoints --- //
+
+// PATCH /rides/:rideID/accept - Accept a ride
+app.patch('/rides/:rideID/accept', async (req, res) => {
+    try {
+        const { rideID } = req.params;
+        const { id } = req.body;
+
+        if (!ObjectId.isValid(rideID) || !id) {
+            return res.status(400).json({ error: "Invalid ride ID or driver ID" });
+        }
+
+        const result = await db.collection('rides').updateOne(
+            { _id: new ObjectId(rideID), status: 'Pending' },
+            { $set: { status: 'Accepted', id } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: "Ride not found or already accepted" });
+        }
+
+        res.status(200).json({ message: "Ride accepted successfully" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to accept ride" });
+    }
+});
+
+// PATCH /rides/:rideID/cancel - Cancel a ride
+app.patch('/rides/:rideID/cancel', async (req, res) => {
+    try {
+        const { rideID } = req.params;
+        const { id } = req.body;
+
+        if (!ObjectId.isValid(rideID) || !id) {
+            return res.status(400).json({ error: "Invalid ride ID or driver ID" });
+        }
+
+        const result = await db.collection('rides').updateOne(
+            { _id: new ObjectId(rideID), status: 'Accepted' },
+            { $set: { status: 'Cancelled', id } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: "Ride not found or already cancelled" });
+        }
+
+        res.status(200).json({ message: "Ride cancelled successfully" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to cancel ride" });
+    }
+});
+
+// GET /rides/:id/history - Fetch ride history for a driver
+app.get('/rides/:id/history', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "Invalid driver ID format" });
+        }
+
+        const rides = await db.collection('rides').find({ id: id }).toArray();
+        if (rides.length === 0) {
+            return res.status(404).json({ error: "No rides found for this driver" });
+        }
+        res.status(200).json(rides);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch ride history" });
+    }
+});
+
+// --- Admin Endpoints --- //
+
+// GET /admin/accounts - Fetch all user accounts
+app.get('/admin/accounts', async (req, res) => {
+    try {
+        const users = await db.collection('users').find().toArray();
+        if (users.length === 0) {
+            return res.status(403).json({ error: "No user accounts found" });
+        }
+        res.status(200).json(users);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch user accounts" });
+    }
+});
+
+// POST /admin/accounts - Create a new user account
+app.post('/admin/accounts', async (req, res) => {
+    try {
+        const { username, password, role } = req.body;
+
+        if (!username || !password || !role) {
+            return res.status(400).json({ error: "Username, password, and role are required" });
+        }
+
+        if (!['user', 'driver'].includes(role)) {
+            return res.status(400).json({ error: "Invalid role. Must be 'user' or 'driver'" });
+        }
+
+        const existingUser = await db.collection('users').findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ error: "Username already exists" });
+        }
+
+        const result = await db.collection('users').insertOne({ username, password, role });
+        res.status(201).json({ id: result.insertedId, message: `${role} registered successfully` });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to register" });
+    }
+});
+
+// PATCH /admin/accounts/:id - Update a user account
+app.patch('/admin/accounts/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, password, role } = req.body;
+
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "Invalid user ID format" });
+        }
+
+        const updateData = {};
+        if (username) updateData.username = username;
+        if (password) updateData.password = password;
+        if (role) updateData.role = role;
+
+        const result = await db.collection('users').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        res.status(200).json({ message: "User account updated successfully" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update user account" });
+    }
+});
+
+// DELETE /admin/accounts/:id - Delete a user account
+app.delete('/admin/accounts/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "Invalid user ID format" });
+        }
+
+        const result = await db.collection('users').deleteOne({ _id: new ObjectId(id) });
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        res.status(200).json({ message: "User account deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to delete user account" });
+    }
+});
+
+// GET /admin/reports - Fetch all ride reports
+app.get('/admin/reports', async (req, res) => {
+    try {
+        const rides = await db.collection('rides').find().toArray();
+        if (rides.length === 0) {
+            return res.status(403).json({ error: "No ride reports found" });
+        }
+        res.status(200).json(rides);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch ride reports" });
     }
 });
