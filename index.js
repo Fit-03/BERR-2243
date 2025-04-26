@@ -255,8 +255,8 @@ app.post('/admin/accounts', async (req, res) => {
             return res.status(400).json({ error: "Username, password, and role are required" });
         }
 
-        if (!['user', 'driver'].includes(role)) {
-            return res.status(400).json({ error: "Invalid role. Must be 'user' or 'driver'" });
+        if (!['user', 'driver', 'admin'].includes(role)) {
+            return res.status(400).json({ error: "Invalid role. Must be 'user' or 'driver' or 'admin'" });
         }
 
         const existingUser = await db.collection('users').findOne({ username });
