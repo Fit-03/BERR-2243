@@ -270,7 +270,7 @@ app.get('/rides/:id/history', async (req, res) => {
 // --- Admin Endpoints --- //
 
 // GET /admin/accounts - Fetch all user accounts
-app.get('/admin/accounts', async (req, res) => {
+app.get('/admin/accounts', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const users = await db.collection('users').find().toArray();
         if (users.length === 0) {
@@ -283,7 +283,7 @@ app.get('/admin/accounts', async (req, res) => {
 });
 
 // POST /admin/accounts - Create a new user account
-app.post('/admin/accounts', async (req, res) => {
+app.post('/admin/accounts', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { username, password, role } = req.body;
 
@@ -311,7 +311,7 @@ app.post('/admin/accounts', async (req, res) => {
 });
 
 // PATCH /admin/accounts/:id - Update a user account
-app.patch('/admin/accounts/:id', async (req, res) => {
+app.patch('/admin/accounts/:id', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const { username, password, role } = req.body;
@@ -341,7 +341,7 @@ app.patch('/admin/accounts/:id', async (req, res) => {
 });
 
 // DELETE /admin/accounts/:id - Delete a user account
-app.delete('/admin/accounts/:id', async (req, res) => {
+app.delete('/admin/accounts/:id', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         if (!ObjectId.isValid(id)) {
