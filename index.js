@@ -1,6 +1,7 @@
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const port = 3000;
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
@@ -85,6 +86,7 @@ app.post('/login', async (req, res) => {
 
         res.status(200).json({ message: "Login successful", role: user.role, token });
     } catch (error) {
+        console.error(error); // <--- Add this line
         res.status(500).json({ error: "Failed to login" });
     }
 });
