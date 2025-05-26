@@ -30,6 +30,9 @@ app.listen(port, () => {
 
 
 // POST /register - Create a new user or driver
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+
 app.post('/register', async (req, res) => {
     try {
         const { username, password, role } = req.body;
@@ -47,7 +50,11 @@ app.post('/register', async (req, res) => {
             return res.status(409).json({ error: "Username already exists" });
         }
 
-        const result = await db.collection('users').insertOne({ username, password, role });
+        // Hash the password before storing
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const user = { username, password: hashedPassword, role };
+
+        const result = await db.collection('users').insertOne(user);
         res.status(201).json({ id: result.insertedId, message: `${role} registered successfully` });
     } catch (error) {
         res.status(500).json({ error: "Failed to register" });
