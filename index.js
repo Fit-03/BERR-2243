@@ -1,6 +1,7 @@
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const port = 3000;
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
@@ -30,6 +31,9 @@ app.listen(port, () => {
 
 
 // POST /register - Create a new user or driver
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+
 app.post('/register', async (req, res) => {
     try {
         const { username, password, role } = req.body;
@@ -47,7 +51,11 @@ app.post('/register', async (req, res) => {
             return res.status(409).json({ error: "Username already exists" });
         }
 
-        const result = await db.collection('users').insertOne({ username, password, role });
+        // Hash the password before storing
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const user = { username, password: hashedPassword, role };
+
+        const result = await db.collection('users').insertOne(user);
         res.status(201).json({ id: result.insertedId, message: `${role} registered successfully` });
     } catch (error) {
         res.status(500).json({ error: "Failed to register" });
@@ -55,6 +63,8 @@ app.post('/register', async (req, res) => {
 });
 
 // POST /login - Authenticate a user with role
+const jwt = require('jsonwebtoken');
+
 app.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -63,15 +73,42 @@ app.post('/login', async (req, res) => {
         }
 
         const user = await db.collection('users').findOne({ username });
-        if (!user || user.password !== password) {
+        if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ error: "Invalid credentials" });
         }
 
-        res.status(200).json({ message: "Login successful", role: user.role });
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN }
+        );
+
+        res.status(200).json({ message: "Login successful", role: user.role, token });
     } catch (error) {
         res.status(500).json({ error: "Failed to login" });
     }
 });
+
+// Authentication middleware
+const authenticate = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: "Unauthorized" });
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        res.status(401).json({ error: "Invalid token" });
+    }
+};
+
+// Authorization middleware (RBAC)
+const authorize = (roles) => (req, res, next) => {
+    if (!roles.includes(req.user.role))
+        return res.status(403).json({ error: "Forbidden" });
+    next();
+};
 
 // --- User Endpoints --- //
 
@@ -234,7 +271,7 @@ app.get('/rides/:id/history', async (req, res) => {
 // --- Admin Endpoints --- //
 
 // GET /admin/accounts - Fetch all user accounts
-app.get('/admin/accounts', async (req, res) => {
+app.get('/admin/accounts', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const users = await db.collection('users').find().toArray();
         if (users.length === 0) {
@@ -247,7 +284,7 @@ app.get('/admin/accounts', async (req, res) => {
 });
 
 // POST /admin/accounts - Create a new user account
-app.post('/admin/accounts', async (req, res) => {
+app.post('/admin/accounts', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { username, password, role } = req.body;
 
@@ -264,7 +301,10 @@ app.post('/admin/accounts', async (req, res) => {
             return res.status(409).json({ error: "Username already exists" });
         }
 
-        const result = await db.collection('users').insertOne({ username, password, role });
+        // Hash the password before storing
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        const result = await db.collection('users').insertOne({ username, password: hashedPassword, role });
         res.status(201).json({ id: result.insertedId, message: `${role} registered successfully` });
     } catch (error) {
         res.status(500).json({ error: "Failed to register" });
@@ -272,7 +312,7 @@ app.post('/admin/accounts', async (req, res) => {
 });
 
 // PATCH /admin/accounts/:id - Update a user account
-app.patch('/admin/accounts/:id', async (req, res) => {
+app.patch('/admin/accounts/:id', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const { username, password, role } = req.body;
@@ -283,7 +323,7 @@ app.patch('/admin/accounts/:id', async (req, res) => {
 
         const updateData = {};
         if (username) updateData.username = username;
-        if (password) updateData.password = password;
+        if (password) updateData.password = await bcrypt.hash(password, saltRounds);
         if (role) updateData.role = role;
 
         const result = await db.collection('users').updateOne(
@@ -302,7 +342,7 @@ app.patch('/admin/accounts/:id', async (req, res) => {
 });
 
 // DELETE /admin/accounts/:id - Delete a user account
-app.delete('/admin/accounts/:id', async (req, res) => {
+app.delete('/admin/accounts/:id', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         if (!ObjectId.isValid(id)) {
