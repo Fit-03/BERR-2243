@@ -6,6 +6,9 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
+const cors = require('cors');
+app.use(cors());
+
 let db;
 
 async function connecToMongoDB() {
@@ -115,12 +118,12 @@ const authorize = (roles) => (req, res, next) => {
 // POST /rides - Create a new ride
 app.post('/rides', async (req, res) => {
     try {
-        const { id, destination, status } = req.body;
-        if (!id || !destination || !status) {
-            return res.status(400).json({ error: "User ID, destination and status are required" });
+        const { id, name, destination, distance, status } = req.body;
+        if (!id || !name || !destination || !distance|| !status) {
+            return res.status(400).json({ error: "Field are required" });
         }
 
-        const ride = { id, destination, status };
+        const ride = { id, name, destination, distance, status };
         const result = await db.collection('rides').insertOne(ride);
 
         res.status(201).json({ rideID: result.insertedId });
@@ -370,5 +373,47 @@ app.get('/admin/reports', async (req, res) => {
         res.status(200).json(rides);
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch ride reports" });
+    }
+});
+
+// GET /analytics/passengers - Fetch passenger analytics
+app.get('/analytics/passengers', async (req, res) => {
+    try {
+        const analytics = await db.collection('rides').aggregate([
+            {
+                $addFields: {
+                    numericAmount: {
+                        $toDouble: { $substr: ['$amount', 3, -1] }
+                    },
+                    numericDistance: {
+                        $toDouble: '$distance'
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: '$name',
+                    totalRides: { $sum: 1 },
+                    totalFare: { $sum: '$numericAmount' },
+                    avgDistance: { $avg: '$numericDistance' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    name: '$_id',
+                    totalRides: 1,
+                    totalFare: { $round: ['$totalFare', 2] },
+                    avgDistance: { $round: ['$avgDistance', 2] }
+                }
+            }
+        ]).toArray();
+
+        if (analytics.length === 0) {
+            return res.status(404).json({ error: "No passenger analytics found" });
+        }
+        res.status(200).json(analytics);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch passenger analytics" });
     }
 });
