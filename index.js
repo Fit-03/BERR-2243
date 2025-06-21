@@ -45,7 +45,7 @@ app.post('/register', async (req, res) => {
             return res.status(400).json({ error: "Username, password, and role are required" });
         }
 
-        if (!['user', 'driver'].includes(role)) {
+        if (!['user', 'driver', 'admin'].includes(role)) {
             return res.status(400).json({ error: "Invalid role. Must be 'user' or 'driver'" });
         }
 
